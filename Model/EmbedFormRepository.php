@@ -11,7 +11,8 @@ use Exception;
 use Magento\Framework\Exception\NoSuchEntityException;
 use DigitalFemsa\Payments\Api\DigitalFemsaApiClient;
 use DigitalFemsa\Payments\Exception\DigitalFemsaException;
-
+use DigitalFemsa\Payments\Helper\Data as DigitalFemsaHelper;
+use Magento\Checkout\Model\Session as CheckoutSession;
 class EmbedFormRepository implements EmbedFormRepositoryInterface
 {
     /**
@@ -34,6 +35,16 @@ class EmbedFormRepository implements EmbedFormRepositoryInterface
      * @var DigitalFemsaQuoteRepositoryFactory
      */
     private $digitalDigitalFemsaQuoteRepositoryFactory;
+    /**
+     * @var DigitalFemsaHelper
+     */
+    private DigitalFemsaHelper $_digitalFemsaHelper;
+    /**
+     * @var CheckoutSession
+     */
+    private CheckoutSession $checkoutSession;
+
+    
 
     /**
      * @param DigitalFemsaLogger $digitalFemsaLogger
@@ -41,13 +52,20 @@ class EmbedFormRepository implements EmbedFormRepositoryInterface
      * @param DigitalFemsaApiClient $digitalFemsaOrderApi
      * @param DigitalFemsaQuoteFactory $digitalDigitalFemsaQuoteFactory
      * @param DigitalFemsaQuoteRepositoryFactory $digitalDigitalFemsaQuoteRepositoryFactory
+     * @param DigitalFemsaHelper $digitalFemsaHelper
+     * @param CheckoutSession $checkoutSession
+
      */
     public function __construct(
         DigitalFemsaLogger                  $digitalFemsaLogger,
         DigitalFemsaQuoteInterface          $digitalFemsaQuoteInterface,
         DigitalFemsaApiClient               $digitalFemsaOrderApi,
         DigitalFemsaQuoteFactory            $digitalDigitalFemsaQuoteFactory,
-        DigitalFemsaQuoteRepositoryFactory  $digitalDigitalFemsaQuoteRepositoryFactory
+        DigitalFemsaQuoteRepositoryFactory  $digitalDigitalFemsaQuoteRepositoryFactory,
+        DigitalFemsaHelper                  $digitalFemsaHelper,
+        CheckoutSession                     $checkoutSession
+
+
     )
     {
         $this->_digitalFemsaLogger = $digitalFemsaLogger;
@@ -55,6 +73,10 @@ class EmbedFormRepository implements EmbedFormRepositoryInterface
         $this->digitalDigitalFemsaQuoteRepositoryFactory = $digitalDigitalFemsaQuoteRepositoryFactory;
         $this->digitalDigitalFemsaQuoteFactory = $digitalDigitalFemsaQuoteFactory;
         $this->digitalFemsaOrderApi = $digitalFemsaOrderApi;
+        $this->_digitalFemsaHelper = $digitalFemsaHelper;
+        $this->checkoutSession = $checkoutSession;
+
+
     }
 
     /**
@@ -78,6 +100,19 @@ class EmbedFormRepository implements EmbedFormRepositoryInterface
         $total = 0;
         foreach ($orderParameters['line_items'] as $lineItem) {
             $total += $lineItem['unit_price'] * $lineItem['quantity'];
+        }
+
+        if ($this->_digitalFemsaHelper->isStoreCreditEnabled()) {
+            $quote = $this->checkoutSession->getQuote();
+            $storeCredit = $quote->getCustomerBalanceAmount() ?? 0;
+            $total = $total - $this->_digitalFemsaHelper->convertToApiPrice($storeCredit);
+        }
+        if ($total < DigitalFemsaQuoteInterface::MINIMUM_AMOUNT_PER_QUOTE * 100) {
+            throw new DigitalFemsaException(
+                __('Para utilizar este medio de pago el monto debe ser superior a $' .
+                   DigitalFemsaQuoteInterface::MINIMUM_AMOUNT_PER_QUOTE .
+                   ' después de aplicar el crédito de tienda')
+            );
         }
 
         if ($total < DigitalFemsaQuoteInterface::MINIMUM_AMOUNT_PER_QUOTE * 100) {

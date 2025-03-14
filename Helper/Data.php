@@ -17,6 +17,8 @@ use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Framework\Module\Manager as ModuleManager;
+
 class Data extends Util
 {
     /**
@@ -60,6 +62,10 @@ class Data extends Util
      * @var CartRepositoryInterface
      */
     protected CartRepositoryInterface $_cartRepository;
+     /**
+     * @var ModuleManager
+     */
+    protected ModuleManager $_moduleManager;
 
     /**
      * Data constructor.
@@ -75,6 +81,8 @@ class Data extends Util
      * @param Escaper $_escaper
      * @param CartRepositoryInterface $cartRepository
      * @param StoreManagerInterface $storeManager
+     * @param ModuleManager $moduleManager
+
      */
 
     public function __construct(
@@ -88,7 +96,9 @@ class Data extends Util
         ProductRepository        $productRepository,
         Escaper                  $_escaper,
         CartRepositoryInterface  $cartRepository,
-        StoreManagerInterface    $storeManager
+        StoreManagerInterface    $storeManager,
+        ModuleManager            $moduleManager
+
     ) {
         parent::__construct($context);
         $this->_moduleList = $moduleList;
@@ -101,6 +111,8 @@ class Data extends Util
         $this->_escaper = $_escaper;
         $this->_cartRepository = $cartRepository;
         $this->_storeManager = $storeManager;
+        $this->_moduleManager = $moduleManager;
+
     }
 
     /**
@@ -727,5 +739,19 @@ class Data extends Util
     public function getStore(): StoreInterface
     {
         return  $this->_storeManager->getStore();
+    }
+
+    public function isStoreCreditEnabled()
+    {
+        return $this->_moduleManager->isEnabled('Magento_CustomerBalance');
+    }
+    public function getOrderAmountAfterStoreCredit($order)
+    {
+        if ($this->isStoreCreditEnabled() && $order->getCustomerBalanceAmount()) {
+            $total = $order->getGrandTotal();
+            $storeCredit = $order->getCustomerBalanceAmount();
+            return $this->convertToApiPrice($total - $storeCredit);
+        }
+        return $this->convertToApiPrice($order->getGrandTotal());
     }
 }

@@ -35,7 +35,7 @@ class AuthorizeRequest implements BuilderInterface
         $order = $paymentDO->getOrder();
         
         $expiry_date = $this->_digitalFemsaHelper->getExpiredAt();
-        $amount = $this->_digitalFemsaHelper->convertToApiPrice($order->getGrandTotalAmount());
+        $amount = $this->_digitalFemsaHelper->getOrderAmountAfterStoreCredit($order);
 
         $request['metadata'] = [
             'plugin' => 'Magento',
