@@ -14,7 +14,7 @@ abstract class Util extends AbstractHelper
      */
     public function removeSpecialCharacter($param): string
     {
-        return trim(preg_replace("/[^0-9a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/", "", $param));
+        return trim(preg_replace("/[^0-9a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/u", "", $param));
     }
 
     /**
