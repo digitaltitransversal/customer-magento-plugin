@@ -14,16 +14,16 @@ abstract class Util extends AbstractHelper
      */
     public function removeSpecialCharacter($param): string
     {
-        return trim(preg_replace("/[^0-9a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/", "", $param));
+        return trim(preg_replace("/[^0-9a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/u", "", $param));
     }
 
     /**
-     * Function that sanitizes a phone string, leaving it fre of unwanted characters
+     * Function that sanitizes a phone string, leaving it free of unwanted characters
      *
      * @param mixed $param
      * @return string
      */
-    public function removePhoneSpecialCharacter($param): string
+    public function removePhoneSpecialCharacter(?string $param): string
     {
         if (!empty($param)) {
             $firstChar = preg_match("/^([+]).*$/", $param)? '+' : '';
@@ -31,18 +31,18 @@ abstract class Util extends AbstractHelper
             return $firstChar . preg_replace("/[^0-9]/", "", $param);
         }
 
-        return $param;
+        return '';
     }
 
     /**
-     * Function that sanitizes a phone string, leaving it free of unwanted characters
+     * Function that sanitizes a string, leaving it free of unwanted characters
      *
      * @param mixed $param
      * @return array|string|string[]|null
      */
     public function removeNameSpecialCharacter($param)
     {
-        return preg_replace("/[^a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/", "", $param);
+        return preg_replace("/[^a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]/u", "", $param);
     }
 
     /**
@@ -51,9 +51,9 @@ abstract class Util extends AbstractHelper
      * @param mixed $param
      * @return array|string|string[]|null
      */
-    public function onlyNumbers($param)
+    public function onlyNumbers(?string $param)
     {
-        return preg_replace("/[^0-9]/", "", $param);
+        return preg_replace("/[^0-9]/", "", (string) $param);
     }
 
     /**

@@ -125,15 +125,15 @@ class DigitalFemsaOrder extends Util
             }
             $customerRequest['name'] = $this->removeNameSpecialCharacter($customerRequest['name']);
             $customerRequest['phone'] = $this->removePhoneSpecialCharacter($billingAddress->getTelephone());
-            
+
             if (strlen($customerRequest['phone']) < 10) {
                 $this->digitalFemsaLogger->info('Helper.CreateOrder phone validation error', $customerRequest);
-                throw new DigitalFemsaException(__('Télefono no válido. 
-                    El télefono debe tener al menos 10 carácteres. 
-                    Los caracteres especiales se desestimaran, solo se puede ingresar como 
-                    primer carácter especial: +'));
+                throw new DigitalFemsaException(__('Teléfono no válido.
+                    El teléfono debe tener al menos 10 caracteres.
+                    Los caracteres especiales se desestimarán, sólo se puede ingresar como
+                    primer caracter especial: +'));
             }
-            
+
             if (empty($femsaCustomerId)) {
                 $femsaCustomer = $this->femsaApiClient->createCustomer($customerRequest);
                 $femsaCustomerId = $femsaCustomer->getId();
@@ -171,7 +171,7 @@ class DigitalFemsaOrder extends Util
         $validOrderWithCheckout['customer_info'] = [
             'customer_id' => $femsaCustomerId
         ];
-        
+
         $validOrderWithCheckout['checkout']    = [
             'allowed_payment_methods'      => $this->getAllowedPaymentMethods(),
             'expires_at'                   => $this->_digitalFemsaHelper->getExpiredAt(),
@@ -179,7 +179,7 @@ class DigitalFemsaOrder extends Util
         ];
         $validOrderWithCheckout['currency']= $this->_digitalFemsaHelper->getCurrencyCode();
         $validOrderWithCheckout['metadata'] = $this->getMetadataOrder($orderItems);
-        
+
         return $validOrderWithCheckout;
     }
 

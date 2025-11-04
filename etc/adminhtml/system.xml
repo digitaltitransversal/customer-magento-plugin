@@ -3,7 +3,7 @@
     <system>
         <section id="payment">
             <group id="digitalfemsa" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
-                <comment><![CDATA[<div class="femsa-payment-logo"></div><div class="femsa-payment-text">Spin Configuration. (v1.0.7) </div>]]></comment>
+                <comment><![CDATA[<div class="femsa-payment-logo"></div><div class="femsa-payment-text">Spin Configuration. (v1.0.8) </div>]]></comment>
                 <fieldset_css>complex femsa-section</fieldset_css>
                 <frontend_model>Magento\Paypal\Block\Adminhtml\System\Config\Fieldset\Payment</frontend_model>
                 <!--global-->
@@ -62,7 +62,7 @@
                         <validate>integer no-whitespace validate-expiry-days</validate>
                         <comment>Allowed days from 1 to 365 days. Default value: 1</comment>
 	                </field>
-                    
+
                 </group>
 
                 <!-- DigitalFemsa Cash -->

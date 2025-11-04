@@ -208,7 +208,7 @@ define(
                 var isValid = true;
 
                 if (!this.renderProperties.billingAddress) {
-                    this.femsaError('Información de Facturación: Complete todos los campos requeridos de para continuar');
+                    this.femsaError('Información de Facturación: Complete todos los campos requeridos para continuar');
                     return false;
                 }
 
@@ -391,7 +391,7 @@ define(
                 const lifeTime = parseInt(this.getMethodConfig().sessionExpirationTime)
                 const timeToExpire = (lifeTime - 5) * 1000
                 setTimeout(()=> {
-                    document.getElementById("femsaIframeContainer").innerHTML = `<div style="width: 100%; text-align: center;"><p>La sesión a finalizado por 
+                    document.getElementById("femsaIframeContainer").innerHTML = `<div style="width: 100%; text-align: center;"><p>La sesión a finalizado por
                     favor actualice la pagina</p> <button onclick="window.location.reload()" class="button action continue primary">Actualizar</button></body></div>`;
                 }, timeToExpire)
             },
