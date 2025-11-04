@@ -128,8 +128,8 @@ class DigitalFemsaOrder extends Util
 
             if (strlen($customerRequest['phone']) < 10) {
                 $this->digitalFemsaLogger->info('Helper.CreateOrder phone validation error', $customerRequest);
-                throw new DigitalFemsaException(__('Téléfono no válido.
-                    El téléfono debe tener al menos 10 caracteres.
+                throw new DigitalFemsaException(__('Teléfono no válido.
+                    El teléfono debe tener al menos 10 caracteres.
                     Los caracteres especiales se desestimarán, sólo se puede ingresar como
                     primer caracter especial: +'));
             }
