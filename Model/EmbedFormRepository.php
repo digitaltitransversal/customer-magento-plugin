@@ -91,21 +91,21 @@ class EmbedFormRepository implements EmbedFormRepositoryInterface
         if (strlen($orderParameters["shipping_contact"]["phone"]) < 10 ||
             strlen($orderParameters["shipping_contact"]["address"]["phone"]) < 10
         ) {
-            throw new DigitalFemsaException(__('Télefono no válido. 
-                El télefono debe tener al menos 10 carácteres. 
-                Los caracteres especiales se desestimaran, solo se puede ingresar como 
-                primer carácter especial: +'));
+            throw new DigitalFemsaException(__('Teléfono no válido.
+                El teléfono debe tener al menos 10 caracteres.
+                Los caracteres especiales se desestimarán, sólo se puede ingresar como
+                primer caracter especial: +'));
         }
 
         if (strlen($orderParameters["shipping_contact"]["address"]["postal_code"]) !== 5) {
-            throw new DigitalFemsaException(__("Código Postal invalido. Debe tener 5 dígitos"));
+            throw new DigitalFemsaException(__("Código Postal inválido. Debe tener 5 dígitos"));
         }
 
         //cash validations
         if (in_array('cash', $orderParameters["checkout"]["allowed_payment_methods"]) &&
             $orderTotal > 10000
         ) {
-            throw new DigitalFemsaException(__('El monto máximo para pagos con Efectivo es de $10.000'));
+            throw new DigitalFemsaException(__('El monto máximo para pagos con efectivo es de $10.000'));
         }
     }
 
