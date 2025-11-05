@@ -51,7 +51,7 @@
             <global>
                 <api_version><![CDATA[2.0.0]]></api_version>
                 <plugin_type><![CDATA[Magento 2]]></plugin_type>
-                <plugin_version><![CDATA[1.0.8]]></plugin_version>
+                <plugin_version><![CDATA[1.0.9]]></plugin_version>
             </global>
         </digitalfemsa>
     </default>

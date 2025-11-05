@@ -3,7 +3,7 @@
     <system>
         <section id="payment">
             <group id="digitalfemsa" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
-                <comment><![CDATA[<div class="femsa-payment-logo"></div><div class="femsa-payment-text">Spin Configuration. (v1.0.8) </div>]]></comment>
+                <comment><![CDATA[<div class="femsa-payment-logo"></div><div class="femsa-payment-text">Spin Configuration. (v1.0.9) </div>]]></comment>
                 <fieldset_css>complex femsa-section</fieldset_css>
                 <frontend_model>Magento\Paypal\Block\Adminhtml\System\Config\Fieldset\Payment</frontend_model>
                 <!--global-->
