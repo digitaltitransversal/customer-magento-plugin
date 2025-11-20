@@ -29,4 +29,7 @@ update-version:
 	@sed -i '' -E 's|(setup_version=")[0-9]+\.[0-9]+\.[0-9]+(")|\1$(VERSION)\2|' etc/module.xml
 	@echo "[module.xml] setup_version -> $(VERSION)"
 
+	@sed -i '' -E "s|'integration_version' => '.*',|'integration_version' => '$(VERSION)',|g" Api/DigitalFemsaApiClient.php
+	@echo "[DigitalFemsaApiClient.php] integration_version -> $(VERSION)"
+
 	@echo "Versión actualizada a $(VERSION) correctamente."

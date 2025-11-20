@@ -27,7 +27,7 @@
             <!-- DigitalFemsa EMBED FORM -->
             <digitalfemsa_ef>
                 <active>1</active>
-                <title>Spin - Paga con  efectivo </title>
+                <title>OXXO Pay - Paga con  efectivo </title>
                 <group>Spin</group>
                 <model>DigitalFemsaPaymentsEmbedFormFacade</model>
                 <iframe_enabled>0</iframe_enabled>
