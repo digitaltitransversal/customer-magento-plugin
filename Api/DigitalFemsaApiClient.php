@@ -91,7 +91,7 @@ class DigitalFemsaApiClient
         $integrationParams = [
             'integration_type' => 'plugin',
             'integration_name' => 'spin-magento',
-            'integration_version' => '1.0.9',
+            'integration_version' => '1.0.10',
             'ecommerce_version' => $this->productMetadata->getVersion(),
             'device_type' => $this->getDeviceType()
         ];
