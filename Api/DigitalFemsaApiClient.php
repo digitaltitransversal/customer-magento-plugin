@@ -9,6 +9,7 @@ use DigitalFemsa\Api\PaymentMethodsApi;
 use DigitalFemsa\Api\WebhooksApi;
 use DigitalFemsa\ApiException;
 use DigitalFemsa\Configuration;
+use DigitalFemsa\HeaderSelector;
 use DigitalFemsa\Model\ChargeOrderResponse;
 use DigitalFemsa\Model\ChargeRequest;
 use DigitalFemsa\Model\ChargeResponse;
@@ -27,6 +28,8 @@ use DigitalFemsa\Model\WebhookResponse;
 use DigitalFemsa\Model\WebhookUpdateRequest;
 use DigitalFemsa\Payments\Helper\Data as HelperData;
 use GuzzleHttp\Client;
+use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\HTTP\Header as HttpHeader;
 
 class DigitalFemsaApiClient
 {
@@ -65,14 +68,36 @@ class DigitalFemsaApiClient
 
     private ChargesApi $charges;
 
+    protected ProductMetadataInterface $productMetadata;
+
+    protected HttpHeader $httpHeader;
+
     public function __construct(
         Client     $client,
-        HelperData $helperData
+        HelperData $helperData,
+        ProductMetadataInterface $productMetadata,
+        HttpHeader $httpHeader
     )
     {
         $this->client = $client;
         $this->helperData = $helperData;
-        $this->config = Configuration::getDefaultConfiguration()->setAccessToken($this->helperData->getPrivateKey());
+        $this->productMetadata = $productMetadata;
+        $this->httpHeader = $httpHeader;
+        $headerSelector = new HeaderSelector();
+        $userAgentHeaders = $headerSelector->getFemsaUserAgent();
+
+        $existingUserAgent = json_decode($userAgentHeaders['X-DigitalFemsa-Client-User-Agent'], true);
+
+        $integrationParams = [
+            'integration_type' => 'plugin',
+            'integration_name' => 'spin-magento',
+            'integration_version' => '1.0.10',
+            'ecommerce_version' => $this->productMetadata->getVersion(),
+            'device_type' => $this->getDeviceType()
+        ];
+
+        $finalUserAgent = array_merge($existingUserAgent, $integrationParams);
+        $this->config = Configuration::getDefaultConfiguration()->setAccessToken($this->helperData->getPrivateKey())->setUserAgent(json_encode($finalUserAgent));
         $this->orderInstance = new OrdersApi($this->client, $this->config);
         $this->customerInstance = new CustomersApi($this->client, $this->config);
         $this->chargeInstance = new ChargesApi($this->client, $this->config);
@@ -81,6 +106,21 @@ class DigitalFemsaApiClient
         $this->charges = new ChargesApi($this->client, $this->config);
     }
 
+    public function getDeviceType(): ?string
+    {
+        $userAgent = $this->httpHeader->getHttpUserAgent();
+
+        if (empty($userAgent)) {
+            return 'Server';
+        }
+
+        $isMobile = preg_match(
+            "/(android|iphone|ipad|tablet|mobile|phone|webos|blackberry)/i",
+            $userAgent
+        );
+
+        return $isMobile ? 'Mobile' : 'Desktop';
+    }
 
     /**
      * @param array $orderData
