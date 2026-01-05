@@ -279,7 +279,19 @@ define(
             renderizeEmbedForm: function () {
                 var self = this;
                 document.getElementById("femsaIframeContainer").innerHTML = "";
+                const uname = `${navigator.userAgent}`;
+                const metadata = [
+                    { key: "plugin", value: "Magento" },
+                    { key: "api_version", value: "2.4.8" },
+                    { key: "app_version", value: "1.0.10" },
+                    { key: "lang", value: "php" },
+                    { key: "lang_version", value: "8.3.16" },
+                    { key: "sdk_version", value: "1.0.6" },
+                    { key: "sdk_name", value: "femsa-php" },
+                    { key: "uname", value: uname }
+                ];
                 window.DigitalFemsaCheckoutComponents.Integration({
+                    metadata: metadata,
                     targetIFrame: '#femsaIframeContainer',
                     checkoutRequestId: this.checkoutId(),
                     publicKey: this.getPublicKey(),
