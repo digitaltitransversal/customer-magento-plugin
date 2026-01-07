@@ -1,14 +1,14 @@
 
 <fieldset data-bind="attr: {class: 'fieldset payment items threeds_checkout ' + getCode(), id: 'threeds_checkout' + getCode()}">
-    
+
     <!-- ko if: femsaError -->
     <div class="femsa-message">
         <div class="femsa-message-header">
             <div class="femsa-payment-logo">
             </div>
-            <p class="femsa-message-title">Spin - Paga con  efectivo</p>
+            <p class="femsa-message-title">OxxoPay - Paga con  efectivo</p>
         </div>
-        
+
         <div data-bind="text: femsaError" class="femsa-message-content">
         </div>
     </div>
@@ -17,7 +17,7 @@
     <!-- ko ifnot: femsaError -->
     <div data-bind="ifnot: femsaError" id="femsaIframeContainer"
          style="width: 800px; height: 1000px; margin-left: auto; margin-right: auto;"
-        
+
     >
     </div>
     <!-- /ko -->

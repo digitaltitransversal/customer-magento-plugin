@@ -86,24 +86,72 @@ class DigitalFemsaApiClient
         $headerSelector = new HeaderSelector();
         $userAgentHeaders = $headerSelector->getFemsaUserAgent();
 
-        $existingUserAgent = json_decode($userAgentHeaders['X-DigitalFemsa-Client-User-Agent'], true);
+        $rawUserAgent = $userAgentHeaders['Spin-Client-User-Agent'] ?? '';
+
+        $existingUserAgent = $this->parseUserAgentHeader($rawUserAgent);
 
         $integrationParams = [
             'integration_type' => 'plugin',
             'integration_name' => 'spin-magento',
-            'integration_version' => '1.0.10',
-            'ecommerce_version' => $this->productMetadata->getVersion(),
+            'plugin_version' => '1.0.10',
+            'platform_version' => $this->productMetadata->getVersion(),
             'device_type' => $this->getDeviceType()
         ];
 
-        $finalUserAgent = array_merge($existingUserAgent, $integrationParams);
-        $this->config = Configuration::getDefaultConfiguration()->setAccessToken($this->helperData->getPrivateKey())->setUserAgent(json_encode($finalUserAgent));
+        $finalUserAgentArray = array_merge($existingUserAgent, $integrationParams);
+
+        $finalUserAgentString = $this->buildUserAgentHeader($finalUserAgentArray);
+
+        $this->config = Configuration::getDefaultConfiguration() ->setAccessToken($this->helperData->getPrivateKey())->setUserAgent($finalUserAgentString);
         $this->orderInstance = new OrdersApi($this->client, $this->config);
         $this->customerInstance = new CustomersApi($this->client, $this->config);
         $this->chargeInstance = new ChargesApi($this->client, $this->config);
         $this->customerPaymentMethods = new PaymentMethodsApi($this->client, $this->config);
         $this->webhooks = new WebhooksApi($this->client, $this->config);
         $this->charges = new ChargesApi($this->client, $this->config);
+    }
+
+
+    private function parseUserAgentHeader(string $header): array
+    {
+        $result = [];
+
+        $parts = explode(';', $header);
+
+        foreach ($parts as $part) {
+            $part = trim($part);
+
+            if ($part === '' || strpos($part, '=') === false) {
+                continue;
+            }
+
+            [$key, $value] = explode('=', $part, 2);
+
+            $key = trim($key);
+            $value = trim($value);
+
+            $result[$key] = $value;
+        }
+
+        return $result;
+    }
+
+    private function buildUserAgentHeader(array $data): string
+    {
+        $parts = [];
+
+        foreach ($data as $key => $value) {
+            $key = trim((string)$key);
+            $value = trim((string)$value);
+
+            if ($key === '') {
+                continue;
+            }
+
+            $parts[] = $key . '=' . $value;
+        }
+
+        return implode(';', $parts);
     }
 
     public function getDeviceType(): ?string
@@ -270,3 +318,4 @@ class DigitalFemsaApiClient
         return $this->charges->updateCharge($chargeId, $charge);
     }
 }
+
