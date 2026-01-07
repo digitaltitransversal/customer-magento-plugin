@@ -29,7 +29,10 @@ update-version:
 	@sed -i '' -E 's|(setup_version=")[0-9]+\.[0-9]+\.[0-9]+(")|\1$(VERSION)\2|' etc/module.xml
 	@echo "[module.xml] setup_version -> $(VERSION)"
 
-	@sed -i '' -E "s|'integration_version' => '.*',|'integration_version' => '$(VERSION)',|g" Api/DigitalFemsaApiClient.php
-	@echo "[DigitalFemsaApiClient.php] integration_version -> $(VERSION)"
+	@sed -i '' -E "s|'plugin_version' => '.*',|'plugin_version' => '$(VERSION)',|g" Api/DigitalFemsaApiClient.php
+	@echo "[DigitalFemsaApiClient.php] plugin_version -> $(VERSION)"
+
+	@sed -i '' -E 's|(\{ key: "app_version", value: ")[0-9]+\.[0-9]+\.[0-9]+(" \},)|\1$(VERSION)\2|' view/frontend/web/js/view/payment/method-renderer/embedform.js
+	@echo "[embedform.js] app_version -> $(VERSION)"
 
 	@echo "Versión actualizada a $(VERSION) correctamente."
