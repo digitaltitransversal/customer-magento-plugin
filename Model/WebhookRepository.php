@@ -78,7 +78,7 @@ class WebhookRepository
             throw new LocalizedException(__('Missing order information'));
         }
         $femsaOrderId = $body['data']['object']['id'];
-        
+
         $this->_logger->info('WebhookRepository :: findByMetadataOrderId started', [
             'order_id' => $femsaOrderId
         ]);
@@ -107,7 +107,8 @@ class WebhookRepository
         }
 
         //Only update order status if order is Pending
-        if ($order->getState() === Order::STATE_PENDING_PAYMENT ||
+        if ($order->getState() === Order::STATE_NEW ||
+            $order->getState() === Order::STATE_PENDING_PAYMENT ||
             $order->getState() === Order::STATE_PAYMENT_REVIEW
         ) {
             if ($order->canCancel()) {
@@ -139,12 +140,12 @@ class WebhookRepository
     {
 
         $order = $this->findByMetadataOrderId($body);
-        
+
         $charge = $body['data']['object'];
         if (!isset($charge['payment_status']) || $charge['payment_status'] !== "paid") {
             throw new LocalizedException(__('Missing order information'));
         }
-        
+
         if (!$order->getId()) {
             $message = 'The order does not exists';
             $this->_logger->error(
