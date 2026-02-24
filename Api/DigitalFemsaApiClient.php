@@ -93,7 +93,7 @@ class DigitalFemsaApiClient
         $integrationParams = [
             'integration_type' => 'plugin',
             'integration_name' => 'spin-magento',
-            'plugin_version' => '1.0.11',
+            'plugin_version' => '1.0.12',
             'platform_version' => $this->productMetadata->getVersion(),
             'device_type' => $this->getDeviceType()
         ];
@@ -102,7 +102,7 @@ class DigitalFemsaApiClient
 
         $finalUserAgentString = $this->buildUserAgentHeader($finalUserAgentArray);
 
-        $this->config = Configuration::getDefaultConfiguration() ->setAccessToken($this->helperData->getPrivateKey())->setUserAgent($finalUserAgentString);
+        $this->config = Configuration::getDefaultConfiguration()->setAccessToken($this->helperData->getPrivateKey())->setUserAgent($finalUserAgentString);
         $this->orderInstance = new OrdersApi($this->client, $this->config);
         $this->customerInstance = new CustomersApi($this->client, $this->config);
         $this->chargeInstance = new ChargesApi($this->client, $this->config);
