@@ -558,7 +558,7 @@ class Data extends Util
                 'method' => 'virtual'
             ];
         } elseif ($shippingAddress) {
-            $shippingLine['amount'] = $this->convertToApiPrice($shippingAddress->getShippingAmount());
+            $shippingLine['amount'] = $this->convertToApiPrice($shippingAddress->getShippingInclTax());
             $shippingLine['method'] = $shippingAddress->getShippingMethod();
             $shippingLine['carrier'] = $shippingAddress->getShippingDescription();
 
