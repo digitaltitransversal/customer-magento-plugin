@@ -283,10 +283,10 @@ define(
                 const metadata = [
                     { key: "plugin", value: "Magento" },
                     { key: "api_version", value: "2.4.8" },
-                    { key: "app_version", value: "1.0.12" },
+                    { key: "app_version", value: "1.0.13" },
                     { key: "lang", value: "php" },
                     { key: "lang_version", value: "8.3.16" },
-                    { key: "sdk_version", value: "1.0.6" },
+                    { key: "sdk_version", value: "1.1.0" },
                     { key: "sdk_name", value: "femsa-php" },
                     { key: "uname", value: uname }
                 ];
