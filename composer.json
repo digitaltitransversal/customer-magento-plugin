@@ -3,10 +3,10 @@
     "description": "Digitalfemsa payment gateway",
     "require": {
         "php": ">=7.4",
-        "digitalfemsa/femsa-php": "^1.0.5"
+        "digitalfemsa/femsa-php": "^1.1.0"
     },
     "type": "magento2-module",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "license": [
         "OSL-3.0",
         "AFL-3.0"
