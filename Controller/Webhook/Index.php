@@ -1,10 +1,11 @@
 <?php
 namespace DigitalFemsa\Payments\Controller\Webhook;
 
+use DigitalFemsa\Payments\Exception\EntityNotFoundException;
+use DigitalFemsa\Payments\Exception\QuoteNotFoundException;
 use DigitalFemsa\Payments\Logger\Logger as DigitalFemsaLogger;
 use DigitalFemsa\Payments\Model\WebhookRepository;
 use DigitalFemsa\Payments\Service\MissingOrders;
-use Exception;
 use Laminas\Http\Response;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
@@ -16,8 +17,6 @@ use Magento\Framework\Controller\Result\RawFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Json\Helper\Data;
 use Magento\Framework\App\Request\InvalidRequestException;
-use Magento\Customer\Model\CustomerFactory;
-use Magento\Quote\Model\QuoteFactory;
 
 
 class Index extends Action implements CsrfAwareActionInterface
@@ -108,7 +107,6 @@ class Index extends Action implements CsrfAwareActionInterface
     public function execute()
     {
         $response = Response::STATUS_CODE_200;
-        $resultRaw = $this->resultRawFactory->create();
 
         try {
             $body = $this->helper->jsonDecode($this->getRequest()->getContent());
@@ -129,9 +127,7 @@ class Index extends Action implements CsrfAwareActionInterface
                 case self::EVENT_WEBHOOK_PING:
                     break;
                 case self::EVENT_ORDER_PENDING_PAYMENT:
-                    if (isset($body['data']['object']["charges"])){
-                        $this->missingOrder->recover_order($body);
-                    }
+                    $this->missingOrder->recover_order($body);
                     $order = $this->webhookRepository->findByMetadataOrderId($body);
                     if (!$order->getId()) {
                         $errorResponse = [
@@ -142,6 +138,7 @@ class Index extends Action implements CsrfAwareActionInterface
                     }
                     break;
                 case self::EVENT_ORDER_PAID:
+                    $this->missingOrder->recover_order($body);
                     $this->webhookRepository->payOrder($body);
                     break;
                 
@@ -151,8 +148,33 @@ class Index extends Action implements CsrfAwareActionInterface
                     break;
             }
 
-        } catch (Exception $e) {
-            $this->_digitalFemsaLogger->error('Controller Index :: '. $e->getMessage());
+        } catch (QuoteNotFoundException $e) {
+            // Quote does not exist — the order is not recoverable and retrying will not resolve it.
+            // Return 204 (No Content) so Femsa stops retrying this webhook.
+            $this->_digitalFemsaLogger->info('Controller Index :: Quote not recoverable, acknowledging webhook: ' . $e->getMessage());
+            $resultRaw = $this->resultRawFactory->create();
+            return $resultRaw->setHttpResponseCode(Response::STATUS_CODE_204);
+        } catch (EntityNotFoundException $e) {
+            $errorResponse = [
+                'error' => 'Entity Not Found',
+                'message' => $e->getMessage(),
+            ];
+            return $this->sendJsonResponse($errorResponse, Response::STATUS_CODE_404);
+        } catch (\Exception $e) {
+            $this->_digitalFemsaLogger->error('Controller Index :: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $errorResponse = [
+                'error' => 'Internal Server Error',
+                'message' => $e->getMessage(),
+            ];
+            return $this->sendJsonResponse($errorResponse, Response::STATUS_CODE_500);
+        } catch (\Throwable $e) {
+            $this->_digitalFemsaLogger->error('Controller Index :: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $errorResponse = [
                 'error' => 'Internal Server Error',
                 'message' => $e->getMessage(),
@@ -160,6 +182,7 @@ class Index extends Action implements CsrfAwareActionInterface
             return $this->sendJsonResponse($errorResponse, Response::STATUS_CODE_500);
         }
         
+        $resultRaw = $this->resultRawFactory->create();
         return $resultRaw->setHttpResponseCode($response);
     }
 

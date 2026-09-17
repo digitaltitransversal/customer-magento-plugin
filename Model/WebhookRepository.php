@@ -4,6 +4,7 @@ namespace DigitalFemsa\Payments\Model;
 
 use DigitalFemsa\Payments\Logger\Logger as DigitalFemsaLogger;
 use DigitalFemsa\Payments\Api\Data\DigitalFemsaSalesOrderInterface;
+use DigitalFemsa\Payments\Exception\EntityNotFoundException;
 use Exception;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Api\Data\OrderInterface;
@@ -151,7 +152,7 @@ class WebhookRepository
             $this->_logger->error(
                 'WebhookRepository :: execute - ' . $message
             );
-            throw new LocalizedException(__($message));
+            throw new EntityNotFoundException(__($message));
         }
 
         $order->setState(Order::STATE_PROCESSING);
