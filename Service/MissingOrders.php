@@ -3,73 +3,57 @@
 namespace DigitalFemsa\Payments\Service;
 
 use DigitalFemsa\Payments\Api\DigitalFemsaApiClient;
+use DigitalFemsa\Payments\Exception\QuoteNotFoundException;
 use DigitalFemsa\Payments\Helper\Data as DigitalFemsaData;
-use DigitalFemsa\Payments\Helper\Util;
 use DigitalFemsa\Payments\Logger\Logger as DigitalFemsaLogger;
 use DigitalFemsa\Payments\Model\Ui\EmbedForm\ConfigProvider;
 use DigitalFemsa\Payments\Model\WebhookRepository;
-use Magento\Catalog\Model\Product;
-use Magento\Customer\Api\CustomerRepositoryInterface;
-use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Exception\LocalizedException;
-use Magento\Quote\Api\Data\CartInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\QuoteManagement;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\Quote\Model\QuoteFactory;
-use Magento\Customer\Model\CustomerFactory;
+use Magento\Sales\Api\Data\OrderInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Sales\Model\OrderFactory;
 use Exception;
 
 class MissingOrders
 {
-    /**
-     * @var WebhookRepository
-     */
     private WebhookRepository $webhookRepository;
-
     private DigitalFemsaLogger $_digitalFemsaLogger;
-    private StoreManagerInterface $_storeManager;
-
-    private QuoteFactory $quote;
-    /**
-     * @var DigitalFemsaData|mixed
-     */
-    private Util $utilHelper;
-    private Product $_product;
-    private CustomerFactory $customerFactory;
-    private CustomerRepositoryInterface $customerRepository;
     private QuoteManagement $quoteManagement;
     private DigitalFemsaApiClient $femsaApiClient;
+    protected CartRepositoryInterface $_cartRepository;
+    private DigitalFemsaData $utilHelper;
+    private OrderFactory $orderFactory;
+    private OrderRepositoryInterface $orderRepository;
 
     public function __construct(
-        WebhookRepository           $webhookRepository,
-        DigitalFemsaLogger          $digitalFemsaLogger,
-        StoreManagerInterface       $storeManager,
-        QuoteFactory                $quote,
-        Product                     $product,
-        CustomerFactory             $customerFactory,
-        CustomerRepositoryInterface $customerRepository,
-        QuoteManagement             $quoteManagement,
-        DigitalFemsaApiClient       $femsaApiClient
-    ){
+        WebhookRepository $webhookRepository,
+        DigitalFemsaLogger $digitalFemsaLogger,
+        QuoteManagement $quoteManagement,
+        DigitalFemsaApiClient $femsaApiClient,
+        CartRepositoryInterface $cartRepository,
+        DigitalFemsaData $utilHelper,
+        OrderFactory $orderFactory,
+        OrderRepositoryInterface $orderRepository
+    ) {
         $this->webhookRepository = $webhookRepository;
         $this->_digitalFemsaLogger = $digitalFemsaLogger;
-        $this->_storeManager = $storeManager;
-        $this->quote = $quote;
-        $this->_product = $product;
-        $this->customerFactory = $customerFactory;
-        $this->customerRepository = $customerRepository;
         $this->quoteManagement = $quoteManagement;
         $this->femsaApiClient = $femsaApiClient;
-
-        $objectManager = ObjectManager::getInstance();
-        $this->utilHelper = $objectManager->create(DigitalFemsaData::class);
+        $this->_cartRepository = $cartRepository;
+        $this->utilHelper = $utilHelper;
+        $this->orderFactory = $orderFactory;
+        $this->orderRepository = $orderRepository;
     }
 
     /**
      * @throws LocalizedException
+     * @throws QuoteNotFoundException when the quote referenced by the webhook metadata cannot be loaded
      */
-    public function recover_order($event){
+    public function recover_order(array $event){
         try {
             //check order en order with external id
             $femsaOrderFound = $this->webhookRepository->findByMetadataOrderId($event);
@@ -79,140 +63,121 @@ class MissingOrders
                 return;
             }
             $femsaOrder = $event['data']['object'];
-            $femsaCustomer = $femsaOrder['customer_info'];
-            $metadata = $femsaOrder['metadata'];
+            $femsaCustomer = $femsaOrder['customer_info'] ?? [];
+            $metadata = $femsaOrder['metadata'] ?? [];
 
-            $store = $this->_storeManager->getStore(intval($metadata["store"]));
-
-            $quoteCreated=$this->quote->create(); //Create object of quote
-
-            $quoteCreated->setStore($store); //set store for which you create quote
-            $quoteCreated->setIsVirtual($metadata[CartInterface::KEY_IS_VIRTUAL]);
-
-            $quoteCreated->setCurrency();
-            $customerName = $this->utilHelper->splitName($femsaCustomer['name']);
-
-            $quoteCreated->setCustomerEmail($femsaCustomer['email']);
-            $quoteCreated->setCustomerFirstname($customerName["firstname"]);
-            $quoteCreated->setCustomerLastname($customerName["lastname"]);
-            $quoteCreated->setCustomerIsGuest(true);
-            if (isset($femsaCustomer['customer_custom_reference']) && !empty($femsaCustomer['customer_custom_reference'])){
-                $customer = $this->customerFactory->create();
-                $customer->setWebsiteId($store->getWebsiteId());
-                $customer->load($femsaCustomer['customer_custom_reference']);// load customer by id
-                $this->_digitalFemsaLogger->info('end customer', ['email' =>$femsaCustomer['email'] ]);
-
-                $customer= $this->customerRepository->getById($customer->getEntityId());
-                $quoteCreated->assignCustomer($customer); //Assign quote to customer
+            if (empty($metadata['quote_id'])) {
+                $this->_digitalFemsaLogger->info('recover_order: no quote_id in metadata, skipping (not a Magento order)');
+                return;
             }
 
+            $quoteId = $metadata['quote_id'];
+            $storeId = $metadata['store'] ?? null;
+            // CartRepositoryInterface::get() declares non-null + NoSuchEntityException,
+            // but real installs with plugins/around-interceptors may return null instead of throwing (BE-849).
+            $quoteCreated = $this->_cartRepository->get($quoteId);
 
-            //add items in quote
-            foreach($femsaOrder['line_items']["data"] as $item){
-                $product=$this->_product->load($item["metadata"]['product_id']);
-                $product->setPrice($this->utilHelper->convertFromApiPrice($item['unit_price']));
-                $quoteCreated->addProduct(
-                    $product,
-                    intval($item['quantity'])
-                );
+            /** @phpstan-ignore-next-line booleanNot.alwaysFalse */
+            if (!$quoteCreated) {
+                throw new QuoteNotFoundException('Quote not found for quote_id ' . $quoteId);
             }
 
-            $shippingNameReceiver = $this->utilHelper->splitName($femsaOrder["shipping_contact"]["receiver"]);
-            $shipping_address = [
-                'firstname'    => $shippingNameReceiver["firstname"],
-                'lastname'     => $shippingNameReceiver["lastname"],
-                'street' => [ $femsaOrder["shipping_contact"]["address"]["street1"], $femsaOrder["shipping_contact"]["address"]["street2"] ?? ""],
-                'city' => $femsaOrder["shipping_contact"]["address"]["city"],
-                'country_id' => strtoupper($femsaOrder["fiscal_entity"]["address"]["country"]),
-                'region' => $femsaOrder["shipping_contact"]["address"]["state"],
-                'postcode' => $femsaOrder["shipping_contact"]["address"]["postal_code"],
-                'telephone' =>  $femsaOrder["shipping_contact"]["phone"],
-                'save_in_address_book' => intval( $femsaOrder["shipping_contact"]["metadata"]["save_in_address_book"]),
-                'region_id' => $femsaOrder["shipping_contact"]["metadata"]["region_id"],
-                'company'  => $femsaOrder["shipping_contact"]["metadata"]["company"],
-            ];
-            $billingAddressName = $this->utilHelper->splitName($femsaOrder["fiscal_entity"]["name"]);
-            $billing_address = [
-                'firstname'    => $billingAddressName["firstname"], //address Details
-                'lastname'     => $billingAddressName["lastname"],
-                'street' => [ $femsaOrder["fiscal_entity"]["address"]["street1"] , $femsaOrder["fiscal_entity"]["address"]["street2"] ?? "" ],
-                'city' => $femsaOrder["fiscal_entity"]["address"]["city"],
-                'country_id' => strtoupper($femsaOrder["fiscal_entity"]["address"]["country"]),
-                'region' => $femsaOrder["fiscal_entity"]["address"]["state"],
-                'postcode' => $femsaOrder["fiscal_entity"]["address"]["postal_code"],
-                'telephone' =>  $femsaCustomer["phone"],
-                'save_in_address_book' =>  intval($femsaOrder["fiscal_entity"]["metadata"]["save_in_address_book"]),
-                'region_id' =>$femsaOrder["fiscal_entity"]["metadata"]["region_id"],
-                'company'  => $femsaOrder["fiscal_entity"]["metadata"]["company"]
-            ];
+            $quoteCreated->setStoreId($storeId);
 
-            //Set Address to quote
-            $quoteCreated->getBillingAddress()->addData($billing_address);
-
-            $quoteCreated->getShippingAddress()->addData($shipping_address);
-
-            // Collect Rates and Set Shipping & Payment Method
-            $shippingAddress=$quoteCreated->getShippingAddress();
-
-            $femsaShippingLines = $femsaOrder["shipping_lines"]["data"];
-
-            $shippingAddress->setCollectShippingRates(true)
-                ->collectShippingRates()
-                ->setShippingAmount($this->utilHelper->convertFromApiPrice($femsaShippingLines[0]["amount"]))
-                ->setShippingMethod($femsaShippingLines[0]["method"]);
-
-            $this->_digitalFemsaLogger->info('end $femsaShippingLines');
-
-
-            //discount lines
-            if (isset($femsaOrder["discount_lines"]) && isset($femsaOrder["discount_lines"]["data"])) {
-                $quoteCreated->setCustomDiscount($this->getDiscountAmount($femsaOrder["discount_lines"]["data"]));
-                $this->applyCoupon($femsaOrder["discount_lines"]["data"],$quoteCreated);
+            $orderFounded = $this->orderFactory->create()->load($quoteCreated->getReservedOrderId(), OrderInterface::INCREMENT_ID);
+            if ($orderFounded->getId() != null || !empty($orderFounded->getId()) ) {
+                $this->_digitalFemsaLogger->info('order is ready', ['order' => $orderFounded, 'is_set', isset($orderFounded)]);
+                return;
             }
-
-            $quoteCreated->setPaymentMethod(ConfigProvider::CODE);
-            $quoteCreated->setInventoryProcessed(false);
-            $quoteCreated->save();
-            $this->_digitalFemsaLogger->info('end save quote');
-
-
-            // Set Sales Order Payment
+            $quoteCreated->setCustomerEmail($femsaCustomer['email'] ?? $quoteCreated->getCustomerEmail());
             $quoteCreated->getPayment()->importData(['method' => ConfigProvider::CODE]);
+            $chargeData = $femsaOrder['charges']['data'][0] ?? null;
+            $paymentMethodObject = $chargeData['payment_method']['object'] ?? 'null';
+            $txnId = $chargeData['id'] ?? null;
+
             $additionalInformation = [
                 'order_id' =>  $femsaOrder["id"],
-                'txn_id' =>  $femsaOrder["charges"]["data"][0]["id"],
                 'quote_id'=> $quoteCreated->getId(),
-                'payment_method' => $this->getPaymentMethod($femsaOrder["charges"]["data"][0]["payment_method"]["object"]),
-                'digitalfemsa_customer_id' => $femsaCustomer["customer_id"]
+                'payment_method' => $this->getPaymentMethod($paymentMethodObject),
+                'digitalfemsa_customer_id' => $femsaCustomer["customer_id"] ?? null
             ];
-            $quoteCreated->getPayment()->setAdditionalInformation(   $additionalInformation);
-            // Collect Totals & Save Quote
-            $quoteCreated->collectTotals()->save();
-            $this->_digitalFemsaLogger->info('Collect Totals & Save Quote');
-
-            // Create Order From Quote
-            $order = $this->quoteManagement->submit($quoteCreated);
-            $this->_digitalFemsaLogger->info('end submit');
-
-
-            $increment_id = $order->getRealOrderId();
-            if (isset($metadata['remote_ip']) && $metadata['remote_ip']!=null) {
-                $order->setRemoteIp($metadata['remote_ip'])->save();
+            if ($txnId) {
+                $additionalInformation['txn_id'] = $txnId;
             }
-            $order->addCommentToStatusHistory("Missing Order from femsa ". "<a href='". ConfigProvider::URL_PANEL_PAYMENTS ."/".$femsaOrder["id"]. "' target='_blank'>".$femsaOrder["id"]."</a>")
-                ->setIsCustomerNotified(true)
-                ->save();
-            $this->updateFemsaReference($femsaOrder["charges"]["data"][0]["id"],  $increment_id);
+            $additionalInformation = array_merge($additionalInformation, $this->getAdditionalInformation($chargeData));
+            $quoteCreated->getPayment()->setAdditionalInformation($additionalInformation);
+            $this->saveMissingFieldsQuote($quoteCreated, $femsaOrder);
+            $order = $this->quoteManagement->submit($quoteCreated);
+            $order->setStoreId($storeId);
 
-        } catch (Exception $e) {
-            $this->_digitalFemsaLogger->error('creating order '.$e->getMessage());
+            $order->addCommentToStatusHistory("Missing Order from femsa ". "<a href='". ConfigProvider::URL_PANEL_PAYMENTS ."/".$femsaOrder["id"]. "' target='_blank'>".$femsaOrder["id"]."</a>")
+                ->setIsCustomerNotified(true);
+
+            $this->orderRepository->save($order);
+            if ($txnId) {
+                $this->updateFemsaReference($txnId,  $order->getRealOrderId());
+            }
+            return ;
+
+        } catch (QuoteNotFoundException $e) {
+            throw $e;
+        } catch (NoSuchEntityException $e){
+            $this->_digitalFemsaLogger->error($e->getMessage());
+            return;
+        }
+        catch (Exception | LocalizedException $e) {
+            $this->_digitalFemsaLogger->error('recovery order '.$e->getMessage());
             throw  $e;
         }
     }
 
-    private function getAdditionalInformation(array $femsaOrder) :array{
+    private function saveMissingFieldsQuote(Quote  $quoteCreated, array $femsaOrder){
+        $shippingContact = $femsaOrder["shipping_contact"] ?? [];
+        $shippingAddressData = $shippingContact["address"] ?? [];
+        $shippingMetadata = $shippingContact["metadata"] ?? [];
+
+        $shippingNameReceiver = $this->utilHelper->splitName($shippingContact["receiver"] ?? "");
+        $shipping_address = [
+            'firstname'    => $shippingNameReceiver["firstname"] ?? "",
+            'lastname'     => $shippingNameReceiver["lastname"] ?? "",
+            'street' => [ $shippingAddressData["street1"] ?? "", $shippingAddressData["street2"] ?? ""],
+            'city' => $shippingAddressData["city"] ?? "",
+            'country_id' => strtoupper($shippingAddressData["country"] ?? ($femsaOrder["fiscal_entity"]["address"]["country"] ?? "")),
+            'region' => $shippingAddressData["state"] ?? "",
+            'postcode' => $shippingAddressData["postal_code"] ?? "",
+            'telephone' =>   $shippingContact["phone"] ?? "5200000000",
+            'region_id' => $shippingMetadata["region_id"] ?? null,
+            'company'  => $shippingMetadata["company"] ?? "",
+        ];
+
+        $fiscalEntity = $femsaOrder["fiscal_entity"] ?? [];
+        $fiscalAddress = $fiscalEntity["address"] ?? [];
+        $fiscalMetadata = $fiscalEntity["metadata"] ?? [];
+        $billingAddressName = $this->utilHelper->splitName($fiscalEntity["name"] ?? "");
+        $billing_address = [
+            'firstname'    => $billingAddressName["firstname"] ?? "",
+            'lastname'     => $billingAddressName["lastname"] ?? "",
+            'street' => [ $fiscalAddress["street1"] ?? "" , $fiscalAddress["street2"] ?? "" ],
+            'city' => $fiscalAddress["city"] ?? "",
+            'country_id' => strtoupper($fiscalAddress["country"] ?? ($shippingAddressData["country"] ?? "")),
+            'region' => $fiscalAddress["state"] ?? "",
+            'postcode' => $fiscalAddress["postal_code"] ?? "",
+            'telephone' => $fiscalEntity["phone"] ??  ($shippingContact["phone"] ?? "5200000000"),
+            'region_id' => $fiscalMetadata["region_id"] ?? null,
+            'company'  => $fiscalMetadata["company"] ?? ""
+        ];
+
+        //Set Address to quote
+        $quoteCreated->getBillingAddress()->addData($billing_address);
+
+        $quoteCreated->getShippingAddress()->addData($shipping_address);
+    }
+
+    private function getAdditionalInformation(?array $chargeData) :array{
+        // DigitalFemsa only supports cash payments; no card additional info to extract.
         return [];
     }
+
     private function updateFemsaReference(string $chargeId, string $orderId){
         $chargeUpdate= [
             "reference_id"=> $orderId,
@@ -222,21 +187,6 @@ class MissingOrders
         }catch (Exception $e) {
             $this->_digitalFemsaLogger->error("updating femsa charge". $e->getMessage(), ["charge_id"=> $chargeId, "reference_id"=> $orderId]);
         }
-    }
-    private function applyCoupon(array $discountLines, Quote $quote)  {
-        foreach ($discountLines as $discountLine){
-            if ($discountLine["type"] == "coupon"){
-                $quote->setCouponCode($discountLine["code"]);
-            }
-        }
-    }
-
-    private function getDiscountAmount(array $discountLines) :float {
-        $discountValue = 0;
-        foreach ($discountLines as $discountLine){
-            $discountValue += $this->utilHelper->convertFromApiPrice($discountLine["amount"]);
-        }
-        return $discountValue * -1;
     }
 
     private function getPaymentMethod(string $type) :string {
