@@ -255,7 +255,7 @@ class Data extends Util
      */
     public function isCashEnabled(): bool
     {
-        return (boolean)$this->getConfigData('digitalfemsa_cash', 'active');
+        return (bool)$this->getConfigData('digitalfemsa_cash', 'active');
     }
 
 
